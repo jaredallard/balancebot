@@ -17,6 +17,7 @@ const helpers = require('../lib/helpers')
 const formatCurrency = require('format-currency')
 const request = require('request-promise-native')
 const { enter, leave } = Stage
+const config = require('../config/config.json')
 
 const rates = {
   base: '',
@@ -36,7 +37,7 @@ const initMoney = async (info) => {
   const startedAt = new Date()
   info('updating local currency exchange rates')
 
-  const res = await request('https://openexchangerates.org/api/latest.json?app_id=c464f979b28b4f4c936514b6ca057c6f', {
+  const res = await request(`https://openexchangerates.org/api/latest.json?app_id=${config.openexchange.app_id}`, {
     json: true
   })
 

@@ -2,5 +2,8 @@
   "telegram": {
     "bot_token": "",
     "announce_id": ""
+  },
+  "openexchange": {
+    "app_id": ""
   }
 }

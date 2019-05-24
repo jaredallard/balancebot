@@ -85,6 +85,7 @@ const main = async () => {
     const accounts = account.findAll(u.id)
 
     let reply = `*@${username} Status*\n\n`
+    let total = 0
     for (const a of accounts) {
       if(a.balance === 0) continue
 
@@ -105,8 +106,10 @@ const main = async () => {
 
       if (weOwe) {
         const to = a.owner === u.id ? related : owner
+        total = total - a.balance
         reply += `You owe @${to.user.sns.telegram} ${a.currencyStr}${formatCurrency(a.balance)}\n`
       } else {
+        total = total + a.balance
         const from = a.owner === u.id ? related : owner
         reply += `@${from.user.sns.telegram} owes you ${a.currencyStr}${formatCurrency(a.balance)}\n`
       }
@@ -115,7 +118,8 @@ const main = async () => {
     if (accounts.length === 0) {
       reply = '*No balances found*'
     } else {
-      reply += '\nFor more information, run `/history @user`.'
+      reply += `\nTotal: $${formatCurrency(total)}\n`
+      reply += 'For more information, run `/history @user`.'
     }
 
     return ctx.replyWithMarkdown(reply)
