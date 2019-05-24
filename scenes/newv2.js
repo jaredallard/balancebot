@@ -34,6 +34,12 @@ const rates = {
 }
 
 const initMoney = async (info) => {
+  if (process.env.SKIP_CURRENCY) {
+    rates.rates['USD'] = 1
+    rates.base = 'USD'
+    return
+  }
+
   const startedAt = new Date()
   info('updating local currency exchange rates')
 
@@ -340,8 +346,9 @@ const constructor = async (bot, info) => {
         op = 'sub'
       }
 
-      info(`new transaction: op=${op},account=${a.id}`)
-      const t = a.transaction(u.id, op, balance / validUserIds.length)
+      const bal = balance / validUserIds.length
+      info(`new transaction: op=${op},account=${a.id},balance=${bal}`)
+      const t = a.transaction(u.id, op, bal)
       lastTransactions.push(`${a.id}:${t.id}`)
     }
 

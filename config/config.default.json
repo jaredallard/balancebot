@@ -5,5 +5,11 @@
   },
   "openexchange": {
     "app_id": ""
+  },
+  "s3": {
+    "accessKey": "",
+    "secretKey": "",
+    "bucket": "",
+    "endpoint": ""
   }
 }

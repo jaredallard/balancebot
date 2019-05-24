@@ -10,7 +10,7 @@ const Telegraf = require('telegraf')
 const User = require('./lib/user')
 const Account = require('./lib/accounts')
 const helpers = require('./lib/helpers')
-const Stage = require('telegraf/stage')
+const AWS = require('aws-sdk')
 const moment = require('moment')
 const session = require('telegraf/session')
 const formatCurrency = require('format-currency')
@@ -23,15 +23,44 @@ const info = (...args) => {
   console.log.call(console, ...[`${dateStr}`, `${now.getHours()}:${now.getMinutes()}:${now.getSeconds()}`].concat(args))
 }
 
+/**
+ * Get a receipt's presigned URL
+ * 
+ * @param {String} receiptId receipt id
+ * @returns {String} file URL
+ */
+const getReceiptURL = async (receiptId) => {
+  const s3 = new AWS.S3({
+    endpoint: config.s3.endpoint,
+    accessKeyId: config.s3.accessKey,
+    secretAccessKey: config.s3.secretKey,
+    signatureVersion: 'v2'
+  })
+
+  return new Promise((resolve, reject) => {
+    s3.getSignedUrl('getObject', {
+      Bucket: config.s3.bucket, 
+      Key: `receipts/${receiptId}.pdf`,
+      Expires: 120
+    }, (err, url) => {
+      if (err) return reject(err)
+      return resolve(url)
+    })
+  })
+}
+
 const main = async () => {
   const bot = new Telegraf(config.telegram.bot_token)
 
   bot.use(session())
 
   const newv2 = require('./scenes/newv2')
+  const updateTransaction = require('./scenes/updatetransaction')
   await newv2(bot, info)
+  await updateTransaction(bot, info)
 
   bot.command('setdescription', ctx => {
+    ctx.reply('WARNING: setdescription is deprecated. Please move to /updatetransaction')
     if(!ctx.session.lstm) ctx.session.lstm = {}
 
     const u = new User()
@@ -173,7 +202,7 @@ const main = async () => {
     return ctx.replyWithMarkdown('*Commands*:\n\nnew - Create a new balance (/new BALANCE @user...)\nstatus - Show the status of balances\npaid - Mark a balance as paid to another user (/paid @user)\nstart - Create a user account\nhistory - View transaction history of an account')
   })
 
-  bot.command('history', ctx => {
+  bot.command('history', async ctx => {
     const params = ctx.message.text.split(' ')
     if (typeof params[1] === 'undefined') {
       return ctx.reply('USAGE: /history @user')
@@ -216,6 +245,12 @@ const main = async () => {
         reply += `\n Desc: ${transaction.description}\n`
       } else {
         reply += '\n'
+      }
+
+      if (transaction.receipts && transaction.receipts.length !== 0) {
+        for (const receiptId of transaction.receipts) {
+          reply += ` [Receipt](${await getReceiptURL(receiptId)})\n`
+        }
       }
     }
 
