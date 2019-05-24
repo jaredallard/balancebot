@@ -38,7 +38,9 @@ const uploadFile = async (stream) => {
   })
 
   const id = uuid()
-  await minio.putObject(config.s3.bucket, `receipts/${id}.pdf`, stream)
+  await minio.putObject(config.s3.bucket, `receipts/${id}.pdf`, stream, undefined, {
+    'content-type': 'application/pdf'
+  })
   return id
 }
 

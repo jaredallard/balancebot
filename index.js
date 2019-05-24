@@ -10,6 +10,7 @@ const Telegraf = require('telegraf')
 const User = require('./lib/user')
 const Account = require('./lib/accounts')
 const helpers = require('./lib/helpers')
+const Extra = require('telegraf/extra')
 const AWS = require('aws-sdk')
 const moment = require('moment')
 const session = require('telegraf/session')
@@ -258,7 +259,7 @@ const main = async () => {
       reply += 'No recent transactions.'
     }
 
-    return ctx.replyWithMarkdown(reply)
+    return ctx.replyWithMarkdown(reply, Extra.webPreview(false))
   })
 
   bot.command('start', ctx => {
