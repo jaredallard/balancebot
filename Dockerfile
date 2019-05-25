@@ -1,10 +1,10 @@
-FROM mhart/alpine-node:12
+FROM mhart/alpine-node:11
+CMD [ "node", "index.js" ]
 WORKDIR /srv/app
+
+RUN apk add --no-cache python make gcc g++
 COPY package.json yarn.lock /srv/app/
+
 RUN yarn --frozen-lockfile --production=true
 
-FROM mhart/alpine-node:slim-12
-WORKDIR /srv/app
-CMD [ "node", "index.js" ]
-COPY --from=0 /srv/app .
 COPY . .
