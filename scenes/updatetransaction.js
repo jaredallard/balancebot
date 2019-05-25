@@ -1,6 +1,6 @@
 /**
  * New v2 scene - better UX
- * 
+ *
  * @author Jared Allard <jaredallard@outlook.com>
  * @license MIT
  * @version 1
@@ -12,8 +12,10 @@ const Extra = require('telegraf/extra')
 const Markup = require('telegraf/markup')
 const User = require('../lib/user')
 const Account = require('../lib/accounts')
-const Telegraf = require('telegraf')
+const imagesToPdf = require('images-to-pdf')
 const Minio = require('minio')
+const path = require('path')
+const fs = require('fs-extra')
 
 const helpers = require('../lib/helpers')
 const moment = require('moment')
@@ -24,7 +26,7 @@ const config = require('../config/config.json')
 
 /**
  * Upload a file to s3
- * 
+ *
  * @param {internal.Stream} stream file stream to upload
  * @returns {String} file id
  */
@@ -44,9 +46,6 @@ const uploadFile = async (stream) => {
   return id
 }
 
-/**
- * @param {Telegraf.Telegraf} bot 
- */
 const constructor = async (bot, info) => {
   const updateDescriptionInput = new Scene('updateDescriptionInput')
   updateDescriptionInput.enter(ctx => {
@@ -58,7 +57,7 @@ const constructor = async (bot, info) => {
     const account = new Account()
     try {
       account.updateTransaction(ctx.session.requestId, desc)
-    } catch(err) {
+    } catch (err) {
       info('failed to update transaction:', err.message)
       return ctx.reply('Failed to update transaction')
     }
@@ -99,7 +98,7 @@ const constructor = async (bot, info) => {
     }
 
     const selection = matches[1]
-    
+
     info('user selected option', selection)
     if (!ctx.session.options[selection]) {
       return ctx.reply('failed to find that option')
@@ -118,21 +117,45 @@ const constructor = async (bot, info) => {
 
   const attachRecieptScene = new Scene('attachReceipt')
   attachRecieptScene.enter(ctx => {
-    return ctx.reply('Please send me a pdf or image via the "File" method.')
+    return ctx.reply('Please send a pdf or image')
   })
-  attachRecieptScene.on('document', async ctx => {
+  attachRecieptScene.on(['document', 'photo'], async ctx => {
+    let document = ctx.update.message.document
+    if (ctx.message.photo) {
+      info('using photo block')
+      // actually a file, but get the last one for best res
+      document = ctx.message.photo[ctx.message.photo.length - 1]
+    }
+
     ctx.reply('Uploading your file...')
-    const link = await ctx.telegram.getFileLink(ctx.message.document.file_id)
-    info('streaming file to s3', link)
-    request.get({ url: link, encoding: null }).on("response", async res => {
+    const link = await ctx.telegram.getFileLink(document.file_id)
+    info('downloading file', link)
+    request.get({ url: link, encoding: null }).on('response', async res => {
       if (res.statusCode !== 200) {
         return ctx.reply('Internal Server Error (failed to download file)')
       }
 
+      // support non PDFs
+      if (path.parse(document.file_name || 'image.jpg').ext !== 'pdf') {
+        info('JIT converting to pdf')
+        const filePath = path.join('/tmp/', document.file_id)
+        const ws = fs.createWriteStream(filePath)
+        res.pipe(ws)
+
+        await new Promise((resolve, reject) => {
+          ws.on('close', resolve)
+          ws.on('error', reject)
+        })
+
+        await imagesToPdf([filePath], filePath + '.pdf')
+        res = fs.createReadStream(filePath + '.pdf')
+      }
+
       let receiptId
       try {
+        info('streaming download to s3')
         receiptId = await uploadFile(res)
-      } catch(err) {
+      } catch (err) {
         info('Failed to upload receipt to s3:', err.message)
         return ctx.reply('Internal Server Error (failed to upload file)')
       }
@@ -142,7 +165,7 @@ const constructor = async (bot, info) => {
       const account = new Account()
       try {
         account.attachReceipt(ctx.session.requestId, receiptId)
-      } catch(err) {
+      } catch (err) {
         info('failed to attachReceipt transaction:', err.message)
         return ctx.reply('Failed to add receipt.')
       }
@@ -154,7 +177,6 @@ const constructor = async (bot, info) => {
   attachRecieptScene.on('message', async ctx => {
     return ctx.reply('Invalid input. Send "cancel" to cancel.')
   })
-  
 
   const optionsScene = new Scene('options')
   optionsScene.enter(ctx => {
@@ -162,7 +184,7 @@ const constructor = async (bot, info) => {
     let { username, first_name } = ctx.message.from
     if (!username) username = first_name
     username = helpers.formatUsername(username)
-  
+
     const exists = u.findBySNS('telegram', username)
     if (!exists) {
       return ctx.reply('Please run /start before using this bot.')
