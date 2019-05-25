@@ -12,7 +12,7 @@ const Account = require('./lib/accounts')
 const helpers = require('./lib/helpers')
 const Extra = require('telegraf/extra')
 const AWS = require('aws-sdk')
-const moment = require('moment')
+const moment = require('moment-timezone')
 const session = require('telegraf/session')
 const formatCurrency = require('format-currency')
 
@@ -58,8 +58,10 @@ const main = async () => {
 
   const newv2 = require('./scenes/newv2')
   const updateTransaction = require('./scenes/updatetransaction')
+  const setting = require('./scenes/settings')
   await newv2(bot, info)
   await updateTransaction(bot, info)
+  await setting(bot, info)
 
   bot.command('setdescription', ctx => {
     ctx.reply('WARNING: setdescription is deprecated. Please move to /updatetransaction')
@@ -244,8 +246,9 @@ const main = async () => {
         date = r.createdAt
       }
       
+      const tz = u.user.settings.timezone || 'UTC'
 
-      const createdAt = moment(date).format('MM-DD HH:mm')
+      const createdAt = moment(date).tz(tz).format('MM-DD HH:mm')
 
       let op;
       if (transaction.op === 'add') {
@@ -254,7 +257,7 @@ const main = async () => {
         op = 'subtracted'
       }
       const username = user.id === u.id ? 'You' : '@'+user.user.sns.telegram
-      reply += `${createdAt} UTC: ${username} ${op} $${formatCurrency(transaction.amount)}`
+      reply += `${createdAt}: ${username} ${op} $${formatCurrency(transaction.amount)}`
       if (description && description !== '') {
         reply += `\n Desc: ${description}\n`
       } else {
