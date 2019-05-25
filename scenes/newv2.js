@@ -18,6 +18,7 @@ const formatCurrency = require('format-currency')
 const request = require('request-promise-native')
 const { enter, leave } = Stage
 const config = require('../config/config.json')
+const uuid = require('uuid/v4')
 
 const rates = {
   base: '',
@@ -192,6 +193,8 @@ const constructor = async (bot, info) => {
 
     const u = ctx.session.user
     const balance = ctx.session.amount
+
+    const rId = uuid()
     const lastTransactions = []
     for (const user of ctx.session.users) {
       const account = new Account()
@@ -217,12 +220,23 @@ const constructor = async (bot, info) => {
       }
 
       info(`new transaction: op=${op},account=${a.id}`)
-      const t = a.transaction(u.id, op, balance / ctx.session.users.length)
-      lastTransactions.push(`${a.id}:${t.id}`)
+      const t = a.transaction(u.id, op, balance / ctx.session.users.length, rId)
+      lastTransactions.push(t.id)
     }
 
-    if(!ctx.session.lstm) ctx.session.lstm = {}
-    ctx.session.lstm[u.id] = lastTransactions
+    const r = {
+      createdAt: new Date(),
+      id: rId,
+      createdById: u.id,
+      ownerId: u.id,
+      relatedIds: ctx.session.users,
+      amount: balance,
+      transactionIds: lastTransactions,
+    }
+
+    const account = new Account()
+    account.db.get('requests').insert(r).write()
+    info('created requestId', r.id)
 
     ctx.reply(`Payment request created for a total of ${formatCurrency(balance)} USD`)
     return ctx.scene.leave()
@@ -323,6 +337,7 @@ const constructor = async (bot, info) => {
     
     info(`creating new payment request, balance=${balance} from users=${validUsers.join(',')}`)
 
+    const rId = uuid()
     const lastTransactions = []
     for (const user of validUserIds) {
       const account = new Account()
@@ -348,12 +363,22 @@ const constructor = async (bot, info) => {
 
       const bal = balance / validUserIds.length
       info(`new transaction: op=${op},account=${a.id},balance=${bal}`)
-      const t = a.transaction(u.id, op, bal)
-      lastTransactions.push(`${a.id}:${t.id}`)
+      const t = a.transaction(u.id, op, bal, rId)
+      lastTransactions.push(t.id)
     }
 
-    if(!ctx.session.lstm) ctx.session.lstm = {}
-    ctx.session.lstm[u.id] = lastTransactions
+    const r = {
+      createdAt: new Date(),
+      id: rId,
+      createdById: u.id,
+      ownerId: u.id,
+      relatedIds: validUserIds,
+      amount: balance,
+      transactionIds: lastTransactions,
+    }
+
+    const account = new Account()
+    account.db.get('requests').insert(r).write()
 
     return ctx.reply(`Payment request created for a total of ${formatCurrency(balance)} USD`)
   })

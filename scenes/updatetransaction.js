@@ -56,17 +56,11 @@ const constructor = async (bot, info) => {
     const desc = ctx.message.text
 
     const account = new Account()
-    for (const ids of ctx.session.lstm[ctx.session.user.id]) {
-      const sids = ids.split(':')
-      const aid = sids[0]
-      const id = sids[1]
-
-      try {
-        account.updateTransaction(aid, id, desc)
-      } catch(err) {
-        info('failed to update transaction:', err.message)
-        return ctx.reply('Failed to update transaction')
-      }
+    try {
+      account.updateTransaction(ctx.session.requestId, desc)
+    } catch(err) {
+      info('failed to update transaction:', err.message)
+      return ctx.reply('Failed to update transaction')
     }
 
     ctx.scene.leave()
@@ -75,30 +69,43 @@ const constructor = async (bot, info) => {
 
   const transactionSelectionScene = new Scene('transactionSelection')
   transactionSelectionScene.enter(ctx => {
-    if (!ctx.session.lstm) ctx.session.lstm = {}
-    const tids = ctx.session.lstm[ctx.session.user.id]
-    if (!tids) {
-      ctx.scene.leave()
-      return ctx.reply('Internal Server Error (missing lstm db for user)')
+    const a = new Account()
+    const rs = a.getRequests(ctx.session.user.id)
+
+    info('searching for requests for user', ctx.session.user.id)
+
+    ctx.session.options = []
+
+    let buttons = []
+    let i = 0
+    for (const r of rs) {
+      ctx.session.options.push(r.id)
+      buttons.push(`${i}. ${moment(r.createdAt).format('MM-DD HH:mm')} $${r.amount} (${r.relatedIds.length} ${r.relatedIds.length === 1 ? 'person' : 'people'})`)
+      i++
     }
 
-    const tokens = tids[0].split(':')
-    const aid = tokens[0]
-    const id = tokens[1]
-
-    const a = new Account(aid)
-    const t = a.getTransaction(aid, id)
-
-    const button = `1. ${moment(t.createdAt).format('MM-DD HH:mm')} ${a.account.currencyStr}${t.amount * tids.length} (${tids.length} people)`
+    buttons.push('Cancel')
 
     return ctx.reply('Please choose the transaction to update', Extra.markup(
-      Markup.keyboard([
-        button,
-        'Cancel'
-      ]).oneTime().resize()
+      Markup.keyboard(buttons, {
+        columns: 1
+      }).oneTime().resize()
     ))
   })
-  transactionSelectionScene.hears(/1./, ctx => {
+  transactionSelectionScene.hears(/^\d/, ctx => {
+    const matches = ctx.message.text.match(/^(\d)/)
+    if (matches.length !== 2) {
+      return ctx.reply('failed to find that option')
+    }
+
+    const selection = matches[1]
+    
+    info('user selected option', selection)
+    if (!ctx.session.options[selection]) {
+      return ctx.reply('failed to find that option')
+    }
+
+    ctx.session.requestId = ctx.session.options[selection]
     ctx.scene.enter(ctx.session.next)
   })
   transactionSelectionScene.hears(/cancel/i, ctx => {
@@ -133,19 +140,11 @@ const constructor = async (bot, info) => {
       info('file uploaded as', receiptId)
 
       const account = new Account()
-      for (const ids of ctx.session.lstm[ctx.session.user.id]) {
-        const sids = ids.split(':')
-        const aid = sids[0]
-        const id = sids[1]
-
-        info('attaching receipt', `accountId=${aid},transactionId=${id},receiptId=${receiptId}`)
-  
-        try {
-          account.attachReceipt(aid, id, receiptId)
-        } catch(err) {
-          info('failed to attachReceipt transaction:', err.message)
-          return ctx.reply('Failed to add receipt.')
-        }
+      try {
+        account.attachReceipt(ctx.session.requestId, receiptId)
+      } catch(err) {
+        info('failed to attachReceipt transaction:', err.message)
+        return ctx.reply('Failed to add receipt.')
       }
 
       ctx.scene.leave()

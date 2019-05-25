@@ -21,7 +21,8 @@ const config = require('./config/config.json')
 const info = (...args) => {
   const now = new Date()
   const dateStr = now.toISOString().split('T')[0].replace(/-/g, '/')
-  console.log.call(console, ...[`${dateStr}`, `${now.getHours()}:${now.getMinutes()}:${now.getSeconds()}`].concat(args))
+  const seconds = now.getSeconds()
+  console.log.call(console, ...[`${dateStr}`, `${now.getHours()}:${now.getMinutes()}:${seconds < 10 ? `0${seconds}` : seconds}`].concat(args))
 }
 
 /**
@@ -209,7 +210,7 @@ const main = async () => {
       return ctx.reply('USAGE: /history @user')
     }
 
-    const payToUser = params[1].replace('@', '').toLowerCase()
+    const payToUser = helpers.formatUsername(params[1])
 
     const u = new User()
     let { id, username, first_name } = ctx.message.from
@@ -232,8 +233,20 @@ const main = async () => {
     let reply = '*Account History*\n\n'
     for (const transaction of a.transactions) {
       const user = new User(transaction.userId)
-      const createdAt = moment(transaction.createdAt).format('MM-DD HH:mm')
+
+      let date = transaction.createdAt
+      let receipts = transaction.receipts
+      let description = transaction.description
+      if (transaction.requestId) {
+        const r = account.getRequest(transaction.requestId)
+        receipts = r.receiptIds
+        description = r.description
+        date = r.createdAt
+      }
       
+
+      const createdAt = moment(date).format('MM-DD HH:mm')
+
       let op;
       if (transaction.op === 'add') {
         op = 'added'
@@ -242,15 +255,17 @@ const main = async () => {
       }
       const username = user.id === u.id ? 'You' : '@'+user.user.sns.telegram
       reply += `${createdAt} UTC: ${username} ${op} $${formatCurrency(transaction.amount)}`
-      if (transaction.description && transaction.description !== '') {
-        reply += `\n Desc: ${transaction.description}\n`
+      if (description && description !== '') {
+        reply += `\n Desc: ${description}\n`
       } else {
         reply += '\n'
       }
 
-      if (transaction.receipts && transaction.receipts.length !== 0) {
-        for (const receiptId of transaction.receipts) {
-          reply += ` [Receipt](${await getReceiptURL(receiptId)})\n`
+      if (receipts && receipts.length !== 0) {
+        let pos = 0
+        for (const receiptId of receipts) {
+          pos++
+          reply += ` [Receipt #${pos}](${await getReceiptURL(receiptId)})\n`
         }
       }
     }
