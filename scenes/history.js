@@ -63,7 +63,7 @@ const history = async (payToUser, ctx) => {
   const a = account.find(u.id, payTo.id)
   if (!a) return ctx.reply(`Failed to find a balance between @${payToUser} and you.`)
 
-  let reply = '*Account History*\n\n'
+  let reply = `*Account History (${payToUser})*\n\n`
   for (const transaction of a.transactions) {
     const user = new User(transaction.userId)
 
