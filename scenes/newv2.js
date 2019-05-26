@@ -213,7 +213,7 @@ const constructor = async (bot, info) => {
         op = 'sub'
       }
 
-      info(`new transaction: op=${op},account=${a.id}`)
+      info(`new transaction: op=${op},account=${a.id},balance=${balance}`)
       const t = a.transaction(u.id, op, balance / ctx.session.users.length, rId)
       lastTransactions.push(t.id)
     }
