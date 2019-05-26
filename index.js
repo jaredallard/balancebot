@@ -1,6 +1,6 @@
 /**
  * Balance Bot
- * 
+ *
  * @author Jared Allard <jaredallard@outlook.com>
  * @license MIT
  * @version 1
@@ -10,9 +10,6 @@ const Telegraf = require('telegraf')
 const User = require('./lib/user')
 const Account = require('./lib/accounts')
 const helpers = require('./lib/helpers')
-const Extra = require('telegraf/extra')
-const AWS = require('aws-sdk')
-const moment = require('moment-timezone')
 const session = require('telegraf/session')
 const formatCurrency = require('format-currency')
 
@@ -25,32 +22,6 @@ const info = (...args) => {
   console.log.call(console, ...[`${dateStr}`, `${now.getHours()}:${now.getMinutes()}:${seconds < 10 ? `0${seconds}` : seconds}`].concat(args))
 }
 
-/**
- * Get a receipt's presigned URL
- * 
- * @param {String} receiptId receipt id
- * @returns {String} file URL
- */
-const getReceiptURL = async (receiptId) => {
-  const s3 = new AWS.S3({
-    endpoint: config.s3.endpoint,
-    accessKeyId: config.s3.accessKey,
-    secretAccessKey: config.s3.secretKey,
-    signatureVersion: 'v2'
-  })
-
-  return new Promise((resolve, reject) => {
-    s3.getSignedUrl('getObject', {
-      Bucket: config.s3.bucket, 
-      Key: `receipts/${receiptId}.pdf`,
-      Expires: 120
-    }, (err, url) => {
-      if (err) return reject(err)
-      return resolve(url)
-    })
-  })
-}
-
 const main = async () => {
   const bot = new Telegraf(config.telegram.bot_token)
 
@@ -59,47 +30,12 @@ const main = async () => {
   const newv2 = require('./scenes/newv2')
   const updateTransaction = require('./scenes/updatetransaction')
   const setting = require('./scenes/settings')
+  const history = require('./scenes/history')
+
+  await history(bot, info)
   await newv2(bot, info)
   await updateTransaction(bot, info)
   await setting(bot, info)
-
-  bot.command('setdescription', ctx => {
-    ctx.reply('WARNING: setdescription is deprecated. Please move to /updatetransaction')
-    if(!ctx.session.lstm) ctx.session.lstm = {}
-
-    const u = new User()
-    let { username, first_name } = ctx.message.from
-    if (!username) username = first_name
-    username = helpers.formatUsername(username)
-
-    const desc = ctx.message.text.replace(/^\/setdescription /, '')
-    if (!desc || desc === '') return ctx.reply("USAGE: /setdescription description of last payment request")
-
-    const exists = u.findBySNS('telegram', username)
-    if (!exists) {
-      return ctx.reply('Please run /start before using this bot.')
-    }
-
-    if(!ctx.session.lstm[u.id] || ctx.session.lstm[u.id].length === 0) {
-      return ctx.reply('No recent payment request found.')
-    }
-
-    const account = new Account()
-    for (const ids of ctx.session.lstm[u.id]) {
-      const sids = ids.split(':')
-      const aid = sids[0]
-      const id = sids[1]
-
-      try {
-        account.updateTransaction(aid, id, desc)
-      } catch(err) {
-        info('failed to update transaction:', err.message)
-        return ctx.reply('Failed to update transaction')
-      }
-    }
-
-    return ctx.reply('Updated transaction details.')
-  })
 
   bot.command('status', ctx => {
     const u = new User()
@@ -120,12 +56,12 @@ const main = async () => {
     let reply = `*@${username} Status*\n\n`
     let total = 0
     for (const a of accounts) {
-      if(a.balance === 0) continue
+      if (a.balance === 0) continue
 
       const owner = new User(a.owner)
       const related = new User(a.related)
 
-      let weOwe = false 
+      let weOwe = false
 
       // we're the owner, and a negative number, we owe related
       if (a.owner === u.id && a.balance < 0) {
@@ -184,10 +120,10 @@ const main = async () => {
     const a = account.find(u.id, payTo.id)
     if (!a) return ctx.reply(`Failed to find a balance between @${payToUser} and you.`)
 
-    if (a.account.balance > 0) { 
-      a.transaction(u.id, 'sub', a.account.balance)
+    if (a.account.balance > 0) {
+      a.transaction(u.id, 'sub', Math.abs(a.account.balance))
     } else if (a.account.balance < 0) {
-      a.transaction(u.id, 'add', a.account.balance)
+      a.transaction(u.id, 'add', Math.abs(a.account.balance))
     } else {
       return ctx.reply('Account is already at zero.')
     }
@@ -206,80 +142,6 @@ const main = async () => {
     return ctx.replyWithMarkdown('*Commands*:\n\nnew - Create a new balance (/new BALANCE @user...)\nstatus - Show the status of balances\npaid - Mark a balance as paid to another user (/paid @user)\nstart - Create a user account\nhistory - View transaction history of an account')
   })
 
-  bot.command('history', async ctx => {
-    const params = ctx.message.text.split(' ')
-    if (typeof params[1] === 'undefined') {
-      return ctx.reply('USAGE: /history @user')
-    }
-
-    const payToUser = helpers.formatUsername(params[1])
-
-    const u = new User()
-    let { id, username, first_name } = ctx.message.from
-    if (!username) username = first_name
-    username = helpers.formatUsername(username)
-
-    let existed = u.findBySNS('telegram', username)
-    if (!existed) return ctx.reply('Please run /start before using this bot.')
-
-    const payTo = new User()
-    existed = payTo.findBySNS('telegram', payToUser)
-    if (!existed) {
-      return ctx.reply(`Failed to find user: @${payToUser}`)
-    }
-
-    const account = new Account()
-    const a = account.find(u.id, payTo.id)
-    if (!a) return ctx.reply(`Failed to find a balance between @${payToUser} and you.`)
-
-    let reply = '*Account History*\n\n'
-    for (const transaction of a.transactions) {
-      const user = new User(transaction.userId)
-
-      let date = transaction.createdAt
-      let receipts = transaction.receipts
-      let description = transaction.description
-      if (transaction.requestId) {
-        const r = account.getRequest(transaction.requestId)
-        receipts = r.receiptIds
-        description = r.description
-        date = r.createdAt
-      }
-      
-      const tz = u.user.settings.timezone || 'UTC'
-
-      const createdAt = moment(date).tz(tz).format('MM-DD HH:mm')
-
-      let op;
-      if (transaction.op === 'add') {
-        op = 'added'
-      } else {
-        op = 'subtracted'
-      }
-      const username = user.id === u.id ? 'You' : '@'+user.user.sns.telegram
-      reply += `${createdAt}: ${username} ${op} $${formatCurrency(transaction.amount)}`
-      if (description && description !== '') {
-        reply += `\n Desc: ${description}\n`
-      } else {
-        reply += '\n'
-      }
-
-      if (receipts && receipts.length !== 0) {
-        let pos = 0
-        for (const receiptId of receipts) {
-          pos++
-          reply += ` [Receipt #${pos}](${await getReceiptURL(receiptId)})\n`
-        }
-      }
-    }
-
-    if (a.transactions.length === 0) {
-      reply += 'No recent transactions.'
-    }
-
-    return ctx.replyWithMarkdown(reply, Extra.webPreview(false))
-  })
-
   bot.command('start', ctx => {
     const user = new User()
     let { id, username, first_name } = ctx.message.from
@@ -292,10 +154,10 @@ const main = async () => {
       return
     }
 
-    user.create(username || first_name, 'telegram', username)
-    ctx.reply(`Created a user account for you. Your name is '${username || first_name}' and your SNS ID is '${id}/${username}'`)
+    user.create(username, 'telegram', username)
+    ctx.reply(`Created a user account for you. Your name is '${username}' and your SNS ID is '${id}/${username}'`)
 
-    info('created user for SNS ID', id, 'username', username || first_name)
+    info('created user for SNS ID', id, 'username', username)
   })
 
   info('running ...')

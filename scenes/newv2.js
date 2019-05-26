@@ -1,6 +1,6 @@
 /**
  * New v2 scene - better UX
- * 
+ *
  * @author Jared Allard <jaredallard@outlook.com>
  * @license MIT
  * @version 1
@@ -12,11 +12,10 @@ const Extra = require('telegraf/extra')
 const Markup = require('telegraf/markup')
 const User = require('../lib/user')
 const Account = require('../lib/accounts')
-const Telegraf = require('telegraf')
 const helpers = require('../lib/helpers')
 const formatCurrency = require('format-currency')
 const request = require('request-promise-native')
-const { enter, leave } = Stage
+const { enter } = Stage
 const config = require('../config/config.json')
 const uuid = require('uuid/v4')
 
@@ -65,25 +64,21 @@ const convert = (from, to, amount) => {
   if (!rates.rates[to]) throw new Error(`Failed to find to currency from '${to}'.`)
 
   if (from === rates.base) {
-    //console.log('base->', from, to, rates.rates[to])
+    // console.log('base->', from, to, rates.rates[to])
     return amount * rates.rates[to]
   }
 
   if (to === rates.base) {
-    //console.log('base<- ',from, to, rates.rates[to])
+    // console.log('base<- ',from, to, rates.rates[to])
     return amount / rates.rates[from]
   }
-  
+
   // from -> base (i.e USD) -> to
   console.log('warning: using expiramental FROM -> USD -> TO support.')
   const middleConvert = convert(from, rates.base, amount)
   return convert(rates.base, to, middleConvert)
 }
 
-/**
- * 
- * @param {Telegraf.Telegraf} bot 
- */
 const constructor = async (bot, info) => {
   await initMoney(info)
 
@@ -111,7 +106,7 @@ const constructor = async (bot, info) => {
     let amount = ctx.message.text.replace(/[,\s]/g, '')
     const numAmount = parseInt(amount.replace(/[^\d]/g, ''), 10)
     if (isNaN(numAmount)) {
-      return ctx.reply("Invalid input")
+      return ctx.reply('Invalid input')
     }
 
     let symbol = amount[0]
@@ -138,18 +133,17 @@ const constructor = async (bot, info) => {
     const u = new User()
     const users = u.db.get('users').value()
     const userNames = users.map(u => {
-      return '@'+u.sns.telegram
+      return '@' + u.sns.telegram
     })
 
     ctx.session.users = []
     userNames.push('done')
 
-    
     info('display usernames', userNames)
     const formatedAmount = ctx.session.formatedAmount
     return ctx.reply(`OK, we will request ${formatedAmount} USD.\nWho should we request this from? (send "done" when done):`, Extra.markup(
       Markup.keyboard(userNames, {
-        columns: 3,
+        columns: 3
       }).resize()
     ))
   })
@@ -162,7 +156,7 @@ const constructor = async (bot, info) => {
 
     const userNames = ctx.session.users.map(id => {
       const u = new User(id)
-      return '@'+u.user.sns.telegram
+      return '@' + u.user.sns.telegram
     })
     ctx.reply(`Going to request payment of ${ctx.session.formatedAmount} from:\n${userNames.join('\n')}\nOk?`, Extra.markup(Markup.keyboard(
       ['Yes', 'No'], {
@@ -176,7 +170,7 @@ const constructor = async (bot, info) => {
     const u = new User()
     const username = helpers.formatUsername(ctx.message.text)
     const exists = u.findBySNS('telegram', username)
-    if(!exists) {
+    if (!exists) {
       return ctx.reply(`Failed to find user: ${username}. Please try again.`)
     }
     ctx.session.users.push(u.id)
@@ -200,8 +194,8 @@ const constructor = async (bot, info) => {
       const account = new Account()
 
       // skip us since we're "paying" ourself here.
-      if(user === u.id) continue
-      
+      if (user === u.id) continue
+
       let a = account.find(u.id, user)
       if (!a) {
         account.create(u.id, user)
@@ -213,7 +207,7 @@ const constructor = async (bot, info) => {
       }
 
       let op
-      if(a.account.owner === u.id) {
+      if (a.account.owner === u.id) {
         op = 'add'
       } else {
         op = 'sub'
@@ -231,7 +225,7 @@ const constructor = async (bot, info) => {
       ownerId: u.id,
       relatedIds: ctx.session.users,
       amount: balance,
-      transactionIds: lastTransactions,
+      transactionIds: lastTransactions
     }
 
     const account = new Account()
@@ -245,7 +239,7 @@ const constructor = async (bot, info) => {
   const stage = new Stage([amountScene, userSelectionScene, confirmScene])
   bot.use(stage.middleware())
   bot.command('new', ctx => {
-    if(!ctx.message.text.split(' ')[1]) {
+    if (!ctx.message.text.split(' ')[1]) {
       info('using v1.2 /new')
       return enter('amount')(ctx)
     }
@@ -272,23 +266,23 @@ const constructor = async (bot, info) => {
 
     const u = new User()
     try {
-      balance = new Number(parseInt(balance, 10))
-      if(isNaN(balance)) throw new Error('Invalid Balance')
+      balance = parseInt(balance, 10)
+      if (isNaN(balance)) throw new Error('Invalid Balance')
 
       params.shift()
       params.shift()
-    } catch(err) {
+    } catch (err) {
       info('using overloaded /new')
 
       try {
         balance = parseInt(params[2].replace(/[^\d]/g, ''), 10)
         balanceStr = params[2]
-        if(isNaN(balance)) throw new Error('Invalid Balance')
+        if (isNaN(balance)) throw new Error('Invalid Balance')
         username = params[1].replace('@', '').toLowerCase()
         params.shift()
         params.shift()
         params.shift()
-      } catch(err) {
+      } catch (err) {
         info('failed to parse overloaded:', err.message)
         return help()
       }
@@ -334,7 +328,7 @@ const constructor = async (bot, info) => {
     if (validUserIds.length === 0) {
       return ctx.reply('No users found or specified.')
     }
-    
+
     info(`creating new payment request, balance=${balance} from users=${validUsers.join(',')}`)
 
     const rId = uuid()
@@ -343,8 +337,8 @@ const constructor = async (bot, info) => {
       const account = new Account()
 
       // skip us since we're "paying" ourself here.
-      if(user === u.id) continue
-      
+      if (user === u.id) continue
+
       let a = account.find(u.id, user)
       if (!a) {
         account.create(u.id, user)
@@ -355,7 +349,7 @@ const constructor = async (bot, info) => {
       }
 
       let op
-      if(a.account.owner === u.id) {
+      if (a.account.owner === u.id) {
         op = 'add'
       } else {
         op = 'sub'
@@ -374,7 +368,7 @@ const constructor = async (bot, info) => {
       ownerId: u.id,
       relatedIds: validUserIds,
       amount: balance,
-      transactionIds: lastTransactions,
+      transactionIds: lastTransactions
     }
 
     const account = new Account()
