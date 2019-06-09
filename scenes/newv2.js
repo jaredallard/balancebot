@@ -246,7 +246,7 @@ const constructor = async (bot, info) => {
 
     info('using v1 /new')
     const params = ctx.message.text.split(' ')
-    let balance = params[1].replace(/[^\d]/g, '')
+    let balance = params[1].replace(/[^\d\.]/g, '')
     let balanceStr = params[1]
 
     const help = () => {
@@ -298,13 +298,12 @@ const constructor = async (bot, info) => {
     info('attempt to convert amount', balance)
     balance = convert(currency, 'USD', balance)
 
+    // format the username
+    username = helpers.formatUsername(username)
     const exists = u.findBySNS('telegram', username)
     if (!exists) {
       return ctx.reply(`Failed to find the user ${username}, did you or they run /start?`)
     }
-
-    // format the username
-    username = helpers.formatUsername(username)
 
     const invalidUsers = []
     const validUserIds = []
