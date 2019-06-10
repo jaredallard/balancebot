@@ -96,11 +96,15 @@ const constructor = async (bot, info) => {
 
     const u = new User()
     const exists = u.findBySNS('telegram', username)
-    if(!exists) return ctx.reply('Please run /start before using this bot.')
+    if (!exists) return ctx.reply('Please run /start before using this bot.')
 
     ctx.session.user = u
 
-    return ctx.reply('How much should we request?')
+    return ctx.reply('How much should we request? (cancel to cancel)')
+  })
+  amountScene.hears(/cancel/i, ctx => {
+    ctx.reply('Canceled!')
+    return ctx.scene.leave()
   })
   amountScene.on('text', ctx => {
     let amount = ctx.message.text.replace(/[,\s]/g, '')
@@ -146,6 +150,10 @@ const constructor = async (bot, info) => {
         columns: 3
       }).resize()
     ))
+  })
+  userSelectionScene.hears(/cancel/i, ctx => {
+    ctx.reply('Canceled!')
+    return ctx.scene.leave()
   })
   userSelectionScene.hears('done', ctx => {
     if (ctx.session.users.length === 0) {
