@@ -283,13 +283,18 @@ const constructor = async (bot, info) => {
       info('using overloaded /new')
 
       try {
-        balance = parseInt(params[2].replace(/[^\d]/g, ''), 10)
+        // we only convert everything to a negative here
+        balance = -Math.abs(parseInt(params[2].replace(/[^\d]/g, ''), 10))
         balanceStr = params[2]
         if (isNaN(balance)) throw new Error('Invalid Balance')
-        username = params[1].replace('@', '').toLowerCase()
+
+        const owedTo = params[1].replace('@', '').toLowerCase()
         params.shift()
         params.shift()
         params.shift()
+        params.push(owedTo)
+
+        info('new params looks like', params)
       } catch (err) {
         info('failed to parse overloaded:', err.message)
         return help()
@@ -381,7 +386,7 @@ const constructor = async (bot, info) => {
     const account = new Account()
     account.db.get('requests').insert(r).write()
 
-    return ctx.reply(`Payment request created for a total of ${formatCurrency(balance)} USD`)
+    return ctx.reply(`Payment request created for a total of ${formatCurrency(Math.abs(balance))} USD`)
   })
 }
 

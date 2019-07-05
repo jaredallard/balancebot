@@ -73,14 +73,16 @@ const main = async () => {
         weOwe = true
       }
 
+      const friendlyBalance = Math.abs(a.balance)
+
       if (weOwe) {
         const to = a.owner === u.id ? related : owner
         total = total - a.balance
-        reply += `You owe @${to.user.sns.telegram} ${a.currencyStr}${formatCurrency(a.balance)}\n`
+        reply += `You owe @${to.user.sns.telegram} ${a.currencyStr}${formatCurrency(friendlyBalance)}\n`
       } else {
         total = total + a.balance
         const from = a.owner === u.id ? related : owner
-        reply += `@${from.user.sns.telegram} owes you ${a.currencyStr}${formatCurrency(a.balance)}\n`
+        reply += `@${from.user.sns.telegram} owes you ${a.currencyStr}${formatCurrency(friendlyBalance)}\n`
       }
     }
 
@@ -103,7 +105,7 @@ const main = async () => {
     const payToUser = params[1].replace('@', '').toLowerCase()
 
     const u = new User()
-    let { id, username, first_name } = ctx.message.from
+    let { username, first_name } = ctx.message.from
     if (!username) username = first_name
     username = helpers.formatUsername(username)
 

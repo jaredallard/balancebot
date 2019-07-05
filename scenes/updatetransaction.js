@@ -13,6 +13,7 @@ const Markup = require('telegraf/markup')
 const User = require('../lib/user')
 const Account = require('../lib/accounts')
 const imagesToPdf = require('images-to-pdf')
+const url = require('url')
 const Minio = require('minio')
 const path = require('path')
 const fs = require('fs-extra')
@@ -31,10 +32,12 @@ const config = require('../config/config.json')
  * @returns {String} file id
  */
 const uploadFile = async (stream) => {
+  const parsed = new url.URL(config.s3.endpoint)
+  const port = parsed.port || 443
   const minio = new Minio.Client({
-    endPoint: config.s3.endpoint,
-    port: 443,
-    useSSL: true,
+    endPoint: parsed.host,
+    port: parsed.port || 443,
+    useSSL: port === 443,
     accessKey: config.s3.accessKey,
     secretKey: config.s3.secretKey
   })
