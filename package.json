@@ -9,7 +9,7 @@
     "format-currency": "^1.0.0",
     "fs-extra": "^8.0.1",
     "images-to-pdf": "^1.0.3",
-    "lodash": "^4.17.11",
+    "lodash": "^4.17.13",
     "lodash-id": "^0.14.0",
     "lowdb": "^1.0.0",
     "minio": "^7.0.8",
