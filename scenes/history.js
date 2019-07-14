@@ -112,7 +112,7 @@ const history = async (payToUser, ctx) => {
 }
 
 const constructor = async (bot, info) => {
-  const userSelectionScene = new Scene('userSelection')
+  const userSelectionScene = new Scene('userSelectionHistory')
   userSelectionScene.enter(ctx => {
     const u = new User()
 
@@ -154,7 +154,7 @@ const constructor = async (bot, info) => {
   bot.command('history', async ctx => {
     const params = ctx.message.text.split(' ')
     if (typeof params[1] === 'undefined') {
-      return ctx.scene.enter('userSelection')
+      return ctx.scene.enter('userSelectionHistory')
     }
 
     const payToUser = helpers.formatUsername(params[1])

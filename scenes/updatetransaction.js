@@ -111,7 +111,7 @@ const constructor = async (bot, info) => {
     ctx.scene.enter(ctx.session.next)
   })
   transactionSelectionScene.hears(/cancel/i, ctx => {
-    ctx.reply('Canceled!')
+    ctx.reply('Canceled!', Extra.markup(Markup.removeKeyboard()))
     return ctx.scene.leave()
   })
   transactionSelectionScene.on('text', ctx => {
@@ -216,7 +216,7 @@ const constructor = async (bot, info) => {
     ctx.scene.enter('transactionSelection')
   })
   optionsScene.hears(/cancel/i, ctx => {
-    ctx.reply('Canceled!')
+    ctx.reply('Canceled!', Extra.markup(Markup.removeKeyboard()))
     return ctx.scene.leave()
   })
   optionsScene.on('text', ctx => {

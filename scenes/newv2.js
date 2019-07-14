@@ -103,7 +103,7 @@ const constructor = async (bot, info) => {
     return ctx.reply('How much should we request? (cancel to cancel)')
   })
   amountScene.hears(/cancel/i, ctx => {
-    ctx.reply('Canceled!')
+    ctx.reply('Canceled!', Extra.markup(Markup.removeKeyboard()))
     return ctx.scene.leave()
   })
   amountScene.on('text', ctx => {
@@ -152,7 +152,7 @@ const constructor = async (bot, info) => {
     ))
   })
   userSelectionScene.hears(/cancel/i, ctx => {
-    ctx.reply('Canceled!')
+    ctx.reply('Canceled!', Extra.markup(Markup.removeKeyboard()))
     return ctx.scene.leave()
   })
   userSelectionScene.hears('done', ctx => {
@@ -166,7 +166,7 @@ const constructor = async (bot, info) => {
       const u = new User(id)
       return '@' + u.user.sns.telegram
     })
-    ctx.reply(`Going to request payment of ${ctx.session.formatedAmount} from:\n${userNames.join('\n')}\nOk?`, Extra.markup(Markup.keyboard(
+    ctx.reply(`Going to request payment of ${ctx.session.formatedAmount} from: ${userNames.join(', ')}. Continue?`, Extra.markup(Markup.keyboard(
       ['Yes', 'No'], {
         columns: 2
       }
@@ -189,7 +189,7 @@ const constructor = async (bot, info) => {
     const opt = ctx.message.text.replace(/\s+/g, '').toLowerCase()
     info('confirm payment scene, option:', opt)
     if (opt !== 'yes') {
-      ctx.reply('Canceling payment request.')
+      ctx.reply('Canceling payment request.', Extra.markup(Markup.removeKeyboard()))
       return ctx.scene.leave()
     }
 
