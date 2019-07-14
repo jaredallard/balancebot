@@ -157,7 +157,7 @@ const constructor = async (bot, info) => {
   })
   userSelectionScene.hears('done', ctx => {
     if (ctx.session.users.length === 0) {
-      ctx.reply('No users selected. Canceling.')
+      ctx.reply('No users selected. Canceling.', Extra.markup(Markup.removeKeyboard()))
       ctx.scene.leave()
       return
     }
@@ -239,6 +239,16 @@ const constructor = async (bot, info) => {
     const account = new Account()
     account.db.get('requests').insert(r).write()
     info('created requestId', r.id)
+
+    info('sending new balance notification', config.telegram.announce_id)
+    ctx.tg.sendMessage(config.telegram.announce_id, `💸 *@${u.user.sns.telegram}* created a new balance related to ${ctx.session.users.map(
+      userId => {
+        const u = new User(userId)
+        return '@' + u.user.sns.telegram
+      }
+    ).join(', ')}.`, {
+      parse_mode: 'markdown'
+    })
 
     ctx.reply(`Payment request created for a total of ${formatCurrency(balance)} USD`)
     return ctx.scene.leave()
@@ -385,6 +395,17 @@ const constructor = async (bot, info) => {
 
     const account = new Account()
     account.db.get('requests').insert(r).write()
+
+    info('sending new balance notification', config.telegram.announce_id)
+    ctx.tg.sendMessage(config.telegram.announce_id, `💸 *@${u.user.sns.telegram}* created a new balance related to ${validUsers.map(
+      (user) => {
+        const u = new User()
+        u.findBySNS('telegram', user)
+        return '@' + u.user.sns.telegram
+      }
+    ).join(', ')}.`, {
+      parse_mode: 'markdown'
+    })
 
     return ctx.reply(`Payment request created for a total of ${formatCurrency(Math.abs(balance))} USD`)
   })
